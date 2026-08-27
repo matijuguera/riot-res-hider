@@ -1,17 +1,84 @@
 # Riot Res Hider
 
-**Cinema mode for League of Legends and Teamfight Tactics.**
-
-If you play in *Borderless* mode, Windows keeps drawing the taskbar on top of the game and your
-desktop icons flash every time the game loses focus for a second. This tiny script fixes that: it
-hides the taskbar and the desktop icons while LoL or TFT is the focused window, and brings them
-back the moment you alt-tab away.
-
-No installer, no dependencies, no admin rights. One Python file and an icon.
+**Play League of Legends and Teamfight Tactics on a smaller screen than you own — and keep the
+desktop out of the way.**
 
 <p align="center">
   <img src="icon.png" width="96" alt="Riot Res Hider icon">
 </p>
+
+Two small Windows scripts, no dependencies beyond Python itself, no installer, no admin rights:
+
+| Script | What it is for |
+| --- | --- |
+| [`set-resolution.py`](set-resolution.py) | Turns your 27" into a 24.5" for both games, by writing a proportionally smaller resolution into each game's config |
+| [`lol-mode-cine.py`](lol-mode-cine.py) | Cinema mode: hides the taskbar and desktop icons while a Riot game has focus, restores them when you alt-tab |
+
+They complement each other. Once the game renders smaller than your monitor, there is desktop
+around it — and that is exactly what cinema mode hides.
+
+**Requirements:** Windows 10 or 11, and Python 3 (any recent version — tested on 3.14).
+Download both from the [latest release](https://github.com/matijuguera/riot-res-hider/releases/latest)
+or clone the repo.
+
+---
+
+# 1. A smaller monitor: `set-resolution.py`
+
+Nearly every pro plays on a 24.5" screen. The whole game fits in a narrower cone of vision, so you
+take in more of the screen without moving your eyes, and your mouse travels less for the same
+in-game distance. On a 27" you get the same feel by rendering the game at a proportionally smaller
+resolution and playing in a window.
+
+The maths is just the diagonal ratio: 24.5 / 27 = 0.907, so on a 2560x1440 monitor you want
+2322x1306. The script works that out for you and writes it into each game's own config file:
+
+| Game | Config file |
+| --- | --- |
+| League of Legends | `<install folder>\Config\game.cfg` |
+| Teamfight Tactics | `%LOCALAPPDATA%\TFT\Saved\Config\WindowsClient\GameUserSettings.ini` |
+
+```bash
+python set-resolution.py --lol "C:\Riot Games\League of Legends" --tft --inches 24.5 --monitor 27
+```
+
+Run it with no arguments and it asks for the paths and sizes instead. The League path is required;
+TFT is optional — pass `--tft` on its own to use the default location, or give it a path.
+
+Useful flags:
+
+| Flag | |
+| --- | --- |
+| `--resolution 2370x1334` | write an exact resolution and skip the inches maths |
+| `--native 2560x1440` | override the detected native resolution |
+| `--mode windowed` | also set the window mode (`windowed`, `borderless`, `fullscreen`) |
+| `--dry-run` | print what would change and write nothing |
+| `--force` | write even if the games are running |
+| `-y` | skip the confirmation prompt |
+
+It is careful with your files:
+
+- **Close both games first.** They rewrite their config on exit and would undo the change; the
+  script refuses to run while they are open unless you pass `--force`.
+- Keeps a `.bak` of the untouched original next to each file, written only the first time.
+- Only rewrites the specific keys. Comments, section order, line endings, encoding and a read-only
+  attribute all survive — a lot of people mark `game.cfg` read-only so the client cannot overwrite
+  it, and the script puts that flag back after writing.
+
+A caveat worth knowing: in **borderless**, Unreal (TFT) stretches the window back to the full
+desktop and ignores a smaller resolution. If you want the smaller image to stick, use windowed.
+
+Performance-wise this is free, and usually a small win: fewer pixels is less work for the GPU. In a
+window there is no upscaling either, so pixels map 1:1 and the image stays sharp — it is just
+physically smaller.
+
+---
+
+# 2. Cinema mode: `lol-mode-cine.py`
+
+If you play in *Borderless* or windowed mode, Windows keeps drawing the taskbar on top of the game
+and your desktop icons sit around it. This script hides the taskbar and the desktop icons while LoL
+or TFT is the focused window, and brings them back the moment you alt-tab away.
 
 ## What it does
 
@@ -46,11 +113,6 @@ The whole thing is `ctypes` against `user32`/`kernel32`/`shell32` — the standa
 
 It also survives an Explorer restart: the script listens for the `TaskbarCreated` broadcast, then
 re-registers its tray icon and rebuilds the cached handles.
-
-## Requirements
-
-- Windows 10 or 11
-- Python 3 (any recent version — tested on 3.14)
 
 ## How to run it
 
