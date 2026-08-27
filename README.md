@@ -7,7 +7,7 @@ desktop out of the way.**
   <img src="icon.png" width="96" alt="Riot Res Hider icon">
 </p>
 
-Two small Windows scripts, no dependencies beyond Python itself, no installer, no admin rights:
+Three small Windows scripts, no dependencies beyond Python itself, no installer, no admin rights:
 
 | Script | What it is for |
 | --- | --- |
@@ -19,7 +19,7 @@ They complement each other. Once the game renders smaller than your monitor, the
 around it — and that is exactly what cinema mode hides.
 
 **Requirements:** Windows 10 or 11, and Python 3 (any recent version — tested on 3.14).
-Download both from the [latest release](https://github.com/matijuguera/riot-res-hider/releases/latest)
+Download them from the [latest release](https://github.com/matijuguera/riot-res-hider/releases/latest)
 or clone the repo.
 
 ---
