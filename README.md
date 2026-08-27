@@ -12,6 +12,7 @@ Two small Windows scripts, no dependencies beyond Python itself, no installer, n
 | Script | What it is for |
 | --- | --- |
 | [`set-resolution.py`](set-resolution.py) | Turns your 27" into a 24.5" for both games, by writing a proportionally smaller resolution into each game's config |
+| [`resize-window.py`](resize-window.py) | Forces an exact window size on a running game, for when TFT refuses the resolution you asked for |
 | [`lol-mode-cine.py`](lol-mode-cine.py) | Cinema mode: hides the taskbar and desktop icons while a Riot game has focus, restores them when you alt-tab |
 
 They complement each other. Once the game renders smaller than your monitor, there is desktop
@@ -66,10 +67,45 @@ It is careful with your files:
   attribute all survive — a lot of people mark `game.cfg` read-only so the client cannot overwrite
   it, and the script puts that flag back after writing.
 
-**TFT will not shrink in borderless.** Unreal stretches a borderless window back to the full
-desktop, so it overwrites `ResolutionSizeX/Y` with your desktop resolution on exit — you can spot
-it having happened because `LastUserConfirmedResolutionSizeX/Y` still holds the value you asked
-for. Use `--mode windowed` and it sticks. League has no such problem.
+## TFT only accepts resolutions your monitor reports
+
+League writes down whatever you give it. TFT does not: it validates the resolution against the
+display modes your monitor advertises and silently falls back to the closest one it knows. Ask for
+2370x1334 on a 2560x1440 screen and you get 1920x1200, because nothing between those two exists in
+the list. Two separate things bite here:
+
+- In **borderless**, Unreal stretches the window to the whole desktop and overwrites
+  `ResolutionSizeX/Y` on exit. `LastUserConfirmedResolutionSizeX/Y` keeps the value you asked for,
+  which is how you tell this is what happened.
+- In **windowed**, the mode sticks but the resolution is still snapped to a supported one.
+
+You can create a custom display mode in your GPU control panel, and TFT will then accept it like
+any other. Or use the next script, which sidesteps the list entirely.
+
+# 2. The exact size anyway: `resize-window.py`
+
+In windowed mode Unreal renders at whatever size its window happens to be. So instead of asking the
+game for a resolution, resize its window from outside and the game follows:
+
+```bash
+python resize-window.py --game tft --resolution 2370x1334
+```
+
+Run it with the game already open and in windowed mode. It only moves and resizes a window through
+the same Win32 calls the taskbar and Alt+Tab use — it never reads or writes the game's memory.
+
+| Flag | |
+| --- | --- |
+| `--game tft` / `--game lol` | which game to target (default `tft`) |
+| `--process NAME.exe` | target any other executable instead |
+| `--resolution 2370x1334` | exact size of the game area, borders excluded |
+| `--inches 24.5 --monitor 27` | same diagonal maths as `set-resolution.py` |
+| `--position center` | `center` (default), `keep`, or `x,y` |
+| `--watch` | keep the size applied until you press Ctrl+C |
+| `--list` | show the game windows it can see, with their current size |
+
+The size lasts as long as that window does, so run it after each launch — or leave `--watch`
+running, which also catches the game resizing itself.
 
 Performance-wise this is free, and usually a small win: fewer pixels is less work for the GPU. In a
 window there is no upscaling either, so pixels map 1:1 and the image stays sharp — it is just
@@ -77,7 +113,7 @@ physically smaller.
 
 ---
 
-# 2. Cinema mode: `lol-mode-cine.py`
+# 3. Cinema mode: `lol-mode-cine.py`
 
 If you play in *Borderless* or windowed mode, Windows keeps drawing the taskbar on top of the game
 and your desktop icons sit around it. This script hides the taskbar and the desktop icons while LoL
