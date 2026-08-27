@@ -228,10 +228,12 @@ def build_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="examples:\n"
                "  python set-resolution.py --lol \"C:\\Riot Games\\League of Legends\" --inches 24.5\n"
-               "  python set-resolution.py --lol . --tft . --resolution 2370x1334 --mode windowed\n",
+               "  python set-resolution.py --lol . --tft . --resolution 2370x1334 --mode windowed\n"
+               "  python set-resolution.py --tft --resolution 2370x1334 --mode windowed\n",
     )
     p.add_argument("--lol", metavar="PATH",
-                   help="League of Legends install folder, or the game.cfg itself")
+                   help="League of Legends install folder, or the game.cfg itself "
+                        "(optional if --tft is given)")
     p.add_argument("--tft", metavar="PATH", nargs="?", const=TFT_DEFAULT,
                    help="optional: TFT config folder, or the GameUserSettings.ini itself")
     p.add_argument("--inches", type=float, metavar="N",
@@ -252,19 +254,20 @@ def build_parser():
 
 def main(argv):
     args = build_parser().parse_args(argv)
-    interactive = not args.lol
+    interactive = not args.lol and not args.tft
 
     native = parse_resolution(args.native) if args.native else desktop_resolution()
 
-    lol_path = args.lol or ask("League of Legends folder", LOL_DEFAULT)
-    if not lol_path:
-        fail("a League of Legends path is required")
-    lol_cfg = find_lol_config(lol_path)
+    lol_path = args.lol or (ask("League of Legends folder", LOL_DEFAULT) if interactive else "")
+    lol_cfg = find_lol_config(lol_path) if lol_path else None
 
     tft_path = args.tft
     if interactive and tft_path is None:
         tft_path = ask("Teamfight Tactics folder (empty to skip)", TFT_DEFAULT)
     tft_cfg = find_tft_config(tft_path) if tft_path else None
+
+    if not lol_cfg and not tft_cfg:
+        fail("nothing to do: pass --lol, --tft, or both")
 
     if args.resolution:
         width, height = parse_resolution(args.resolution)
@@ -285,11 +288,12 @@ def main(argv):
     print("native resolution : %dx%d" % native)
     print("new resolution    : %dx%d   (%s)" % (width, height, how))
     print("window mode       : %s" % (args.mode if args.mode else "unchanged"))
-    print("league config     : %s" % lol_cfg)
+    print("league config     : %s" % (lol_cfg or "skipped"))
     print("tft config        : %s" % (tft_cfg or "skipped"))
     print()
 
-    busy = running_processes(LOL_PROCESSES) + (running_processes(TFT_PROCESSES) if tft_cfg else [])
+    busy = ((running_processes(LOL_PROCESSES) if lol_cfg else [])
+            + (running_processes(TFT_PROCESSES) if tft_cfg else []))
     if busy and not args.force:
         fail("close these first, they rewrite their config on exit: " + ", ".join(busy))
 
@@ -298,10 +302,12 @@ def main(argv):
             print("nothing written")
             return 0
 
-    targets = [("League of Legends", lol_cfg, LOL_SECTION, [
-        ("Width", width),
-        ("Height", height),
-    ] + ([("WindowMode", LOL_MODES[args.mode])] if args.mode else []))]
+    targets = []
+    if lol_cfg:
+        targets.append(("League of Legends", lol_cfg, LOL_SECTION, [
+            ("Width", width),
+            ("Height", height),
+        ] + ([("WindowMode", LOL_MODES[args.mode])] if args.mode else [])))
 
     if tft_cfg:
         targets.append(("Teamfight Tactics", tft_cfg, TFT_SECTION, [

@@ -42,8 +42,9 @@ The maths is just the diagonal ratio: 24.5 / 27 = 0.907, so on a 2560x1440 monit
 python set-resolution.py --lol "C:\Riot Games\League of Legends" --tft --inches 24.5 --monitor 27
 ```
 
-Run it with no arguments and it asks for the paths and sizes instead. The League path is required;
-TFT is optional — pass `--tft` on its own to use the default location, or give it a path.
+Run it with no arguments and it asks for the paths and sizes instead. Pass either game, or both:
+`--tft` on its own uses the default location, or give it a path. `--lol` takes the install folder
+or the `game.cfg` itself.
 
 Useful flags:
 
@@ -65,8 +66,10 @@ It is careful with your files:
   attribute all survive — a lot of people mark `game.cfg` read-only so the client cannot overwrite
   it, and the script puts that flag back after writing.
 
-A caveat worth knowing: in **borderless**, Unreal (TFT) stretches the window back to the full
-desktop and ignores a smaller resolution. If you want the smaller image to stick, use windowed.
+**TFT will not shrink in borderless.** Unreal stretches a borderless window back to the full
+desktop, so it overwrites `ResolutionSizeX/Y` with your desktop resolution on exit — you can spot
+it having happened because `LastUserConfirmedResolutionSizeX/Y` still holds the value you asked
+for. Use `--mode windowed` and it sticks. League has no such problem.
 
 Performance-wise this is free, and usually a small win: fewer pixels is less work for the GPU. In a
 window there is no upscaling either, so pixels map 1:1 and the image stays sharp — it is just
