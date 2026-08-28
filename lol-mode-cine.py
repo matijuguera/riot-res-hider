@@ -13,12 +13,29 @@ GAME_PROCESSES = {
     "tftclient-win64-shipping.exe",
 }
 
+# Tamano exacto del area de juego, por proceso. Vacio = no tocar ninguna ventana.
+# TFT solo acepta resoluciones que el monitor declare como modos reales, asi que fijarle
+# el tamano a la ventana es la unica forma de tener una medida propia. En modo ventana
+# Unreal renderiza al tamano de su ventana, asi que el juego sigue.
+GAME_WINDOW_SIZES = {
+    "tftclient-win64-shipping.exe": (2370, 1334),
+}
+
+# Mientras arranca, el juego puede pisar el tamano un par de veces; se reintenta durante
+# este rato y despues no se lo molesta mas, por si lo redimensionas a mano.
+RESIZE_GRACE_TICKS = 120  # ~60 s a 500 ms por tick
+
 POLL_INTERVAL_MS = 500
 APP_NAME = "LoL modo cine"
 ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lol-mode-cine.ico")
 
 SW_HIDE = 0
 SW_SHOW = 5
+SW_RESTORE = 9
+
+SWP_NOZORDER = 0x0004
+SWP_NOACTIVATE = 0x0010
+MONITOR_DEFAULTTONEAREST = 2
 
 WM_DESTROY = 0x0002
 WM_CLOSE = 0x0010
@@ -95,9 +112,20 @@ class NOTIFYICONDATAW(ctypes.Structure):
     ]
 
 
+class MONITORINFO(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wt.DWORD),
+        ("rcMonitor", wt.RECT),
+        ("rcWork", wt.RECT),
+        ("dwFlags", wt.DWORD),
+    ]
+
+
 user32.FindWindowW.restype = wt.HWND
 user32.FindWindowExW.restype = wt.HWND
 user32.GetForegroundWindow.restype = wt.HWND
+user32.MonitorFromWindow.restype = wt.HANDLE
+user32.MonitorFromWindow.argtypes = [wt.HWND, wt.DWORD]
 user32.DefWindowProcW.restype = LRESULT
 user32.DefWindowProcW.argtypes = [wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM]
 user32.CreateWindowExW.restype = wt.HWND
@@ -153,35 +181,32 @@ def _build_cache():
 
 # --- Poll optimizado: solo consulta el proceso cuando cambia el PID ---
 _last_pid = 0
-_last_is_game = False
+_last_name = ""
 
 
-def is_game_focused():
-    global _last_pid, _last_is_game
-
-    hwnd = user32.GetForegroundWindow()
-    if not hwnd:
-        return False
+def foreground_process(hwnd):
+    """Nombre del exe duenio de esa ventana, en minusculas. Cacheado por PID."""
+    global _last_pid, _last_name
 
     pid = wt.DWORD()
     user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
 
     if pid.value == _last_pid:
-        return _last_is_game
+        return _last_name
 
     _last_pid = pid.value
     hprocess = kernel32.OpenProcess(0x1000, False, pid.value)
     if not hprocess:
-        _last_is_game = False
-        return False
+        _last_name = ""
+        return _last_name
 
     buf = ctypes.create_unicode_buffer(260)
     size = wt.DWORD(260)
     kernel32.QueryFullProcessImageNameW(hprocess, 0, buf, ctypes.byref(size))
     kernel32.CloseHandle(hprocess)
 
-    _last_is_game = os.path.basename(buf.value).lower() in GAME_PROCESSES
-    return _last_is_game
+    _last_name = os.path.basename(buf.value).lower()
+    return _last_name
 
 
 # --- Transición: solo ShowWindow ---
@@ -202,10 +227,63 @@ def deactivate_cine():
         user32.ShowWindow(_taskbar_hwnd, SW_SHOW)
 
 
+# --- Tamano fijo de la ventana del juego ---
+_resize_hwnd = None
+_resize_left = 0
+
+
+def keep_window_size(hwnd, name):
+    """Le fija a la ventana en foco el area de juego pedida, si es una de las configuradas."""
+    global _resize_hwnd, _resize_left
+
+    size = GAME_WINDOW_SIZES.get(name)
+    if not size:
+        return
+
+    if hwnd != _resize_hwnd:  # ventana nueva: arranca de nuevo el periodo de gracia
+        _resize_hwnd, _resize_left = hwnd, RESIZE_GRACE_TICKS
+    if _resize_left <= 0:
+        return
+    _resize_left -= 1
+
+    client = wt.RECT()
+    user32.GetClientRect(hwnd, ctypes.byref(client))
+    if (client.right, client.bottom) == size:
+        return
+    if client.right < 200 or client.bottom < 200:  # todavia arrancando
+        return
+
+    if user32.IsZoomed(hwnd):  # maximizada: SetWindowPos no la achica
+        user32.ShowWindow(hwnd, SW_RESTORE)
+        user32.GetClientRect(hwnd, ctypes.byref(client))
+
+    window = wt.RECT()
+    user32.GetWindowRect(hwnd, ctypes.byref(window))
+    extra_w = (window.right - window.left) - client.right
+    extra_h = (window.bottom - window.top) - client.bottom
+    total_w, total_h = size[0] + extra_w, size[1] + extra_h
+
+    info = MONITORINFO()
+    info.cbSize = ctypes.sizeof(MONITORINFO)
+    user32.GetMonitorInfoW(
+        user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), ctypes.byref(info))
+    screen = info.rcMonitor
+    x = screen.left + ((screen.right - screen.left) - total_w) // 2
+    y = screen.top + ((screen.bottom - screen.top) - total_h) // 2
+
+    user32.SetWindowPos(hwnd, None, x, y, total_w, total_h, SWP_NOZORDER | SWP_NOACTIVATE)
+    print("Ventana de %s -> %dx%d" % (name, size[0], size[1]))
+
+
 def poll():
     global cine_active
 
-    game = is_game_focused()
+    hwnd = user32.GetForegroundWindow()
+    name = foreground_process(hwnd) if hwnd else ""
+    game = name in GAME_PROCESSES
+
+    if game:
+        keep_window_size(hwnd, name)
 
     if game and not cine_active:
         activate_cine()
@@ -341,6 +419,13 @@ def cleanup(signum=None, frame=None):
 
 signal.signal(signal.SIGINT, cleanup)
 signal.signal(signal.SIGTERM, cleanup)
+
+# Sin esto Windows devuelve coordenadas virtualizadas en pantallas escaladas (125%, 150%),
+# y el tamano que se le fija a la ventana del juego sale mal por ese factor.
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)  # per-monitor, Win 8.1+
+except (AttributeError, OSError):
+    user32.SetProcessDPIAware()
 
 _build_cache()
 _hwnd = create_window()

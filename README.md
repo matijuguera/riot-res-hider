@@ -104,8 +104,11 @@ the same Win32 calls the taskbar and Alt+Tab use — it never reads or writes th
 | `--watch` | keep the size applied until you press Ctrl+C |
 | `--list` | show the game windows it can see, with their current size |
 
-The size lasts as long as that window does, so run it after each launch — or leave `--watch`
-running, which also catches the game resizing itself.
+The size lasts as long as that window does. TFT writes a validated resolution back to its
+config every time it closes, so each launch comes up at a different size — you get a fresh window
+and the size is gone. Run it after each launch, leave `--watch` running, or let cinema mode do it
+for you: it already watches for these games, and can apply the size the moment the window shows up
+(see `GAME_WINDOW_SIZES` below).
 
 Performance-wise this is free, and usually a small win: fewer pixels is less work for the GPU. In a
 window there is no upscaling either, so pixels map 1:1 and the image stays sharp — it is just
@@ -125,6 +128,8 @@ or TFT is the focused window, and brings them back the moment you alt-tab away.
 - If it belongs to League of Legends or Teamfight Tactics, it hides the taskbar
   (`Shell_TrayWnd`) and the desktop icon list (`SysListView32`) with `ShowWindow(SW_HIDE)`.
 - When any other window takes focus, everything comes back.
+- Optionally gives that game's window an exact size, so you do not have to run
+  `resize-window.py` by hand after every launch.
 - Lives in the system tray: right-click the icon to see the current state and quit.
 
 Games detected out of the box:
@@ -203,6 +208,21 @@ POLL_INTERVAL_MS = 500
 
 Add any executable name (lowercase) to `GAME_PROCESSES` to use it with other games — VALORANT,
 Steam titles, anything.
+
+To also pin a window size, list the process and the game area you want:
+
+```python
+GAME_WINDOW_SIZES = {
+    "tftclient-win64-shipping.exe": (2370, 1334),
+}
+
+RESIZE_GRACE_TICKS = 120  # ~60 s
+```
+
+Leave the dictionary empty and no window is ever touched. The size is applied while that game has
+focus, and only during the first minute after its window appears — long enough to win against the
+game resizing itself as it starts up, short enough that it never fights you if you resize the
+window yourself later.
 
 ## Notes and limitations
 
