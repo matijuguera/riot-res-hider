@@ -27,6 +27,9 @@ RESIZE_GRACE_TICKS = 120  # ~60 s a 500 ms por tick
 
 POLL_INTERVAL_MS = 500
 APP_NAME = "LoL modo cine"
+# Una sola instancia: dos a la vez se pelearian, una ocultando y la otra mostrando.
+# "Local\" = por sesion de usuario, que es lo que corresponde para una app de bandeja.
+INSTANCE_MUTEX = "Local\\LolModoCine"
 ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lol-mode-cine.ico")
 
 SW_HIDE = 0
@@ -36,6 +39,7 @@ SW_RESTORE = 9
 SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 MONITOR_DEFAULTTONEAREST = 2
+ERROR_ALREADY_EXISTS = 183
 
 WM_DESTROY = 0x0002
 WM_CLOSE = 0x0010
@@ -70,7 +74,8 @@ ID_EXIT = 1
 TIMER_ID = 1
 
 user32 = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
+# use_last_error para que ctypes.get_last_error() sea confiable (lo usa el mutex de instancia).
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 shell32 = ctypes.windll.shell32
 
 LRESULT = ctypes.c_ssize_t
@@ -145,6 +150,8 @@ user32.TrackPopupMenu.argtypes = [
 user32.SetTimer.restype = ctypes.c_size_t
 user32.SetTimer.argtypes = [wt.HWND, ctypes.c_size_t, wt.UINT, wt.LPVOID]
 kernel32.GetModuleHandleW.restype = wt.HMODULE
+kernel32.CreateMutexW.restype = wt.HANDLE
+kernel32.CreateMutexW.argtypes = [wt.LPVOID, wt.BOOL, wt.LPCWSTR]
 shell32.Shell_NotifyIconW.argtypes = [wt.DWORD, ctypes.POINTER(NOTIFYICONDATAW)]
 
 # --- Cache de handles (se construye una sola vez al inicio) ---
@@ -419,6 +426,13 @@ def cleanup(signum=None, frame=None):
 
 signal.signal(signal.SIGINT, cleanup)
 signal.signal(signal.SIGTERM, cleanup)
+
+# El handle queda abierto toda la vida del proceso: Windows libera el mutex al cerrarse,
+# incluso si lo matan, asi que no queda trabado si el proceso muere mal.
+_instance_mutex = kernel32.CreateMutexW(None, False, INSTANCE_MUTEX)
+if not _instance_mutex or ctypes.get_last_error() == ERROR_ALREADY_EXISTS:
+    print("Ya hay una instancia corriendo.")
+    sys.exit(0)
 
 # Sin esto Windows devuelve coordenadas virtualizadas en pantallas escaladas (125%, 150%),
 # y el tamano que se le fija a la ventana del juego sale mal por ese factor.

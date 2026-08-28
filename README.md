@@ -231,6 +231,8 @@ window yourself later.
 - Only the primary monitor's taskbar is hidden (`Shell_TrayWnd`). Secondary taskbars
   (`Shell_SecondaryTrayWnd`) are left alone on purpose, so a second screen keeps working normally.
 - The taskbar and icons are always restored on exit, including on shutdown and sign-out.
+- Only one copy runs at a time. A named mutex claimed at startup makes a second launch exit
+  immediately, so two instances can never end up fighting over the taskbar.
 - The tray menu is in Spanish (`Salir` = quit).
 
 ## License
