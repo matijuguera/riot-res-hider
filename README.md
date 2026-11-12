@@ -7,7 +7,11 @@ desktop out of the way.**
   <img src="icon.png" width="96" alt="Riot Res Hider icon">
 </p>
 
-Three small Windows scripts, no dependencies beyond Python itself, no installer, no admin rights:
+**The easy way:** download [`LolModoCine.exe`](https://github.com/matijuguera/riot-res-hider/releases/latest)
+and run it. One 90 KB file, a settings window, a tray icon. No Python, no installer, no admin
+rights — see [the app](#the-app-lolmodocineexe) below.
+
+**The scriptable way:** three small Windows scripts, no dependencies beyond Python itself:
 
 | Script | What it is for |
 | --- | --- |
@@ -18,9 +22,49 @@ Three small Windows scripts, no dependencies beyond Python itself, no installer,
 They complement each other. Once the game renders smaller than your monitor, there is desktop
 around it — and that is exactly what cinema mode hides.
 
-**Requirements:** Windows 10 or 11, and Python 3 (any recent version — tested on 3.14).
-Download them from the [latest release](https://github.com/matijuguera/riot-res-hider/releases/latest)
-or clone the repo.
+**Requirements:** Windows 10 or 11. The scripts also need Python 3 (any recent version — tested
+on 3.14); the app needs nothing. Download either from the
+[latest release](https://github.com/matijuguera/riot-res-hider/releases/latest) or clone the repo.
+
+---
+
+# The app: `LolModoCine.exe`
+
+Cinema mode and the smaller-monitor trick in one window, for people who do not want to touch
+Python. Run it and tick what you want; every change applies and saves immediately.
+
+| Setting | What it does |
+| --- | --- |
+| Barra de tareas / Íconos del escritorio | Hide the taskbar and the desktop icons while the game has focus |
+| Fondo de pantalla y ventanas de atrás | Puts a black backdrop right behind the game, on the game's monitor: no wallpaper, no other windows around it |
+| League of Legends / Teamfight Tactics | Which games switch cinema mode on |
+| Tu monitor / Emular / Tamaño | The diagonal maths from `set-resolution.py`: 27" → 24.5" on 2560x1440 gives 2322x1306. The size is editable |
+| Aplicar a LoL | Writes that size into League's `game.cfg`, once. Close League first |
+| Fijar la ventana de TFT | Resizes and centres the TFT window every time it opens, since TFT ignores its config |
+| Iniciar con Windows | Starts with Windows, straight to the tray |
+| Pausar el modo cine | Leaves everything visible until you untick it |
+
+Closing the window sends it to the tray; right-click the icon and pick *Salir* to quit. The
+interface is in Spanish.
+
+Good to know:
+
+- **Windows will warn you the first time.** The exe is not code-signed, so SmartScreen shows
+  "Windows protected your PC" — click *More info › Run anyway*.
+- The backdrop is a plain black window, not a wallpaper change: it shows up instantly, works with
+  animated wallpapers, and never takes focus, so clicking next to the game does not alt-tab you.
+- *Aplicar a LoL* is as careful as the script: a `game.cfg.bak` of the original, only the keys it
+  needs, and the read-only flag is put back.
+- Settings live in `%APPDATA%\LolModoCine\config.ini`. Autostart is one value under
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, removed when you untick the box.
+- If it is ever killed while a game is focused, the next launch brings the taskbar and icons back.
+- It will not run next to `lol-mode-cine.py`; they do the same job. Quit the script first.
+
+Build it yourself with the .NET SDK — it targets .NET Framework 4.8, which ships with Windows:
+
+```bash
+dotnet build app -c Release
+```
 
 ---
 

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- .NET Framework 4.8 viene con Windows 10 y 11: el exe corre sin instalar nada. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>LolModoCine</AssemblyName>
+    <RootNamespace>LolModoCine</RootNamespace>
+    <ApplicationIcon>..\lol-mode-cine.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.1.0</Version>
+    <Product>LoL modo cine</Product>
+    <AssemblyTitle>LoL modo cine</AssemblyTitle>
+    <Company>riot-res-hider</Company>
+    <DebugType>none</DebugType>
+    <!-- Sin LolModoCine.exe.config al lado: tiene que ser un solo archivo. -->
+    <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <EmbeddedResource Include="..\lol-mode-cine.ico" LogicalName="app.ico" />
+  </ItemGroup>
+
+</Project>

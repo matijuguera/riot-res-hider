@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 build/
 dist/
+bin/
+obj/
 *.spec
 *.log
 Thumbs.db
